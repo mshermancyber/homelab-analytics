@@ -1,0 +1,23 @@
+# systemd user unit — install with:
+#   mkdir -p ~/.config/systemd/user
+#   sed "s|%REPO%|$(pwd)|" backend/scripts/ueba.service > ~/.config/systemd/user/ueba.service
+#   systemctl --user daemon-reload && systemctl --user enable --now ueba
+#
+# Keep the service running after logout:
+#   sudo loginctl enable-linger "$USER"
+
+[Unit]
+Description=UEBA Platform backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%REPO%/backend
+EnvironmentFile=-%REPO%/.env
+ExecStart=%REPO%/backend/scripts/ueba-start.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

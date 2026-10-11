@@ -1,0 +1,156 @@
+# UEBA Platform Configuration
+#
+# Every value here can be overridden by an environment variable (see
+# .env.example).  Secrets do NOT belong in this file — put them in .env.
+#
+# The `network:` block is the only section you MUST edit before first run.
+
+network:
+  # Friendly name, used in UI labels and LLM prompts.
+  name: "LAN"
+
+  # Subnets treated as internal.  Add every monitored network.
+  lan_cidrs:
+    - "192.168.1.0/24"
+
+  # Router / firewall addresses.  All traffic transits these, so they are
+  # never treated as suspicious sources.
+  gateway_ips:
+    - "192.168.1.1"
+
+  # Local DNS resolvers (e.g. Pi-hole instances).
+  dns_servers: []
+  #  - "192.168.1.10"
+
+  # Known own public addresses.  Leave empty: the engine discovers the current
+  # WAN address on startup and refreshes it every two hours.
+  static_wan_ips: []
+
+  # Hosts that are noisy by design — feed scrapers, CI runners, crawlers.
+  # Behavioural-only alerts from these are suppressed; IOC matches still fire.
+  infra_hosts: []
+  #  - "192.168.1.20"
+
+  # Hosts exempt from the DNS burst detectors (high query volume is expected).
+  dns_burst_whitelist: []
+
+  # Your own dynamic-DNS / external hostnames.  Excluded from the DynDNS and
+  # low-reputation-TLD rules so your own hostname never alerts.
+  own_hostnames: []
+  #  - "myhost.example-ddns.net"
+
+  # SearXNG instances for the LLM's web-search tool.  Empty disables search.
+  searxng_urls: []
+  #  - "http://192.168.1.10:8080"
+
+  # Org-name fragments (matched against GeoIP/ASN org) treated as reputable
+  # when suppressing weak behavioural signals.  Add your ISP here if its
+  # consumer ranges generate noise.
+  reputable_orgs:
+    - cloudflare
+    - akamai
+    - fastly
+    - amazon
+    - google
+    - microsoft
+    - apple
+    - meta
+    - facebook
+    - netflix
+    - github
+    - digitalocean
+    - oracle
+
+  # Optional per-host notes handed to the LLM triage prompt as "known hosts".
+  # Use this to teach the model what a host legitimately does.
+  host_notes: {}
+  #  "192.168.1.1": "Router/firewall. All traffic transits here."
+  #  "192.168.1.20": "Build server. High destination fanout is normal."
+
+feeds:
+  refresh_interval_seconds: 21600  # 6 hours
+
+  # Optional local SQLite mirror of CVE / EPSS / Tranco data.  When unset,
+  # KEV and EPSS fall back to their public APIs and domain-reputation checks
+  # stay off.  Schema: docs/FEEDS.md
+  local_db_path: ""
+
+  urls:
+    # Malware / C2
+    urlhaus: "https://urlhaus.abuse.ch/downloads/csv_online/"
+    threatfox: "https://threatfox.abuse.ch/export/json/recent/"
+    feodo_tracker: "https://feodotracker.abuse.ch/downloads/ipblocklist.csv"
+    ssl_blacklist: "https://sslbl.abuse.ch/blacklist/sslipblacklist.csv"
+    malwarebazaar: "https://bazaar.abuse.ch/export/csv/recent/"
+    # Ransomware
+    ransomware_live: "https://api.ransomware.live/v2/recentvictims"
+    # Botnet / DDoS
+    spamhaus_drop: "https://www.spamhaus.org/drop/drop.txt"
+    dshield_top: "https://www.dshield.org/block.txt"
+    # Phishing
+    openphish: "https://openphish.com/feed.txt"
+    phishtank: "https://data.phishtank.com/data/online-valid.csv"
+    # APT / nation-state
+    emerging_threats_compromised: "https://rules.emergingthreats.net/blockrules/compromised-ips.txt"
+    cisa_kev: "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
+    # MITRE ATT&CK (STIX bundle)
+    mitre_attack: "https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json"
+    # General reputation
+    blocklist_de: "https://lists.blocklist.de/lists/all.txt"
+    cins_army: "https://cinsscore.com/list/ci-badguys.txt"
+    # Anonymizer infrastructure — internal host <-> Tor exit is high-signal
+    tor_exits: "https://check.torproject.org/torbulkexitlist"
+    # Curated malicious domains (stamparm/blackbook, updated daily)
+    blackbook: "https://raw.githubusercontent.com/stamparm/blackbook/master/blackbook.txt"
+
+analytics:
+  thresholds:
+    outbound_volume_bytes_per_minute: 104857600  # 100MB/min
+    high_entropy_shannon_threshold: 4.0
+    blocked_query_repeat_threshold: 5
+    port_scan_distinct_ports: 20
+    beaconing_interval_tolerance_seconds: 3
+    beaconing_min_repetitions: 10
+    dest_fanout_per_minute: 50
+    dns_query_burst_per_5min: 100
+    dns_unknown_domains_per_5min: 20
+    volumetric_threshold: 200
+    dns_amplification_threshold: 50
+  baseline_window_days: 30
+  cooldown:
+    alert_dedup_seconds: 1800     # 30 minutes per (src_ip, dst_ip) pair
+    llm_rate_limit: 3             # concurrent LLM calls
+    llm_batch_window_seconds: 30  # collect events for this long, then triage
+
+llm:
+  # LLM triage is optional post-hoc enrichment: local rules create every alert
+  # first, and the LLM can only upgrade one.  Set enabled: true (and an API key
+  # in .env) to turn it on.
+  enabled: false
+
+  # anthropic (default), or openai / ollama / any OpenAI-compatible endpoint.
+  provider: anthropic
+  model: claude-opus-5-5
+  # Leave base_url empty to use the provider's default endpoint.
+  base_url: ""
+  # Reasoning depth: low | medium | high | xhigh | max
+  effort: medium
+  max_tokens: 16000
+  # Only used by OpenAI-compatible providers; current Claude models reject it.
+  temperature: 0.1
+  # Re-run a policy-declined request on a safe fallback model, server-side.
+  server_side_fallback: true
+
+  # Optional secondary provider, tried when the primary errors out.
+  fallback_provider: ""
+  fallback_model: ""
+  fallback_base_url: ""
+
+listeners:
+  syslog_port: 1514
+  api_host: "0.0.0.0"
+  api_port: 28819
+
+logging:
+  level: "INFO"
+  format: "json"

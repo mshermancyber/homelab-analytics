@@ -1,0 +1,38 @@
+# API + server
+fastapi>=0.115
+uvicorn[standard]>=0.34
+python-multipart>=0.0.19
+websockets>=14.0
+
+# Storage
+sqlalchemy>=2.0
+aiosqlite>=0.20
+
+# HTTP
+httpx>=0.28
+
+# Config / validation
+pyyaml>=6.0
+pydantic>=2.10
+pydantic-settings>=2.7
+
+# Auth
+python-jose[cryptography]>=3.3
+passlib[bcrypt]>=1.7
+bcrypt>=4.2
+cryptography>=44.0
+
+# LLM providers
+# anthropic — default provider (Messages API)
+anthropic>=1.0
+# openai — only needed for OpenAI-compatible providers (openai, ollama, ...)
+openai>=1.58
+
+# Analytics / ML
+numpy>=2.0
+scikit-learn>=1.5
+joblib>=1.4
+networkx>=3.3
+
+# GeoIP / ASN enrichment (local MMDB files, see docs/GEOIP.md)
+maxminddb>=2.6
