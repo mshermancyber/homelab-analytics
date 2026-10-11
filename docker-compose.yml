@@ -1,0 +1,65 @@
+# UEBA Platform — Docker Compose
+#
+# Copy .env.example to .env first; Compose reads it automatically.
+#   docker compose up -d --build
+
+services:
+  ueba-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ueba-backend
+    ports:
+      - "28819:28819"
+      - "1514:1514/udp"   # point your firewall's syslog target here
+    volumes:
+      - ./backend/data:/app/data
+      - ./backend/config.yaml:/app/config.yaml:ro
+    environment:
+      - UEBA_DB_PATH=/app/data/ueba.db
+      - UEBA_DATA_DIR=/app/data
+      - API_HOST=0.0.0.0
+      - API_PORT=28819
+      - SYSLOG_PORT=1514
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      # Secrets and overrides — supplied by .env, never baked into the image
+      - JWT_SECRET=${JWT_SECRET:-}
+      - LLM_ENABLED=${LLM_ENABLED:-false}
+      - LLM_PROVIDER=${LLM_PROVIDER:-anthropic}
+      - LLM_MODEL=${LLM_MODEL:-claude-opus-5-5}
+      - LLM_EFFORT=${LLM_EFFORT:-medium}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - LLM_BASE_URL=${LLM_BASE_URL:-}
+      - ESCALATION_WEBHOOK_URL=${ESCALATION_WEBHOOK_URL:-}
+      - PIHOLE_URL=${PIHOLE_URL:-}
+      - PIHOLE_PASSWORD=${PIHOLE_PASSWORD:-}
+      # Network topology (overrides backend/config.yaml when set)
+      - UEBA_NETWORK_NAME=${UEBA_NETWORK_NAME:-}
+      - UEBA_LAN_CIDRS=${UEBA_LAN_CIDRS:-}
+      - UEBA_GATEWAY_IPS=${UEBA_GATEWAY_IPS:-}
+      - UEBA_DNS_SERVERS=${UEBA_DNS_SERVERS:-}
+      - UEBA_OWN_HOSTNAMES=${UEBA_OWN_HOSTNAMES:-}
+      - UEBA_SEARXNG_URLS=${UEBA_SEARXNG_URLS:-}
+    restart: unless-stopped
+    networks:
+      - ueba-net
+
+  nginx:
+    image: nginx:alpine
+    container_name: ueba-nginx
+    ports:
+      - "${WEB_PORT:-28818}:28818"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # Build the dashboard first: cd frontend && npm install && npx ng build
+      - ./frontend/dist/frontend/browser:/usr/share/nginx/html:ro
+    depends_on:
+      - ueba-backend
+    restart: unless-stopped
+    networks:
+      - ueba-net
+
+networks:
+  ueba-net:
+    driver: bridge
